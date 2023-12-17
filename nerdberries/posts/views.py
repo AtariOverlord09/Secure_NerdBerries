@@ -1,8 +1,12 @@
+import os
+from urllib.parse import unquote
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.db import connection
-from django.http import QueryDict
+from django.http import QueryDict, HttpResponse
+from django.conf import settings
 
 from core.paginator import paginator
 from posts.forms import CommentForm, PostForm, SearchForm
@@ -94,6 +98,24 @@ def profile(request, username):
     }
     return render(request, template, context)
 
+def get_image(request, filename):
+    try:
+        # Декодирование URL
+        decoded_filename = unquote(filename)
+
+        safe_path = os.path.normpath(os.path.join(settings.MEDIA_ROOT, decoded_filename))
+        if not safe_path.startswith(settings.MEDIA_ROOT):
+            print(safe_path)
+            return HttpResponse(status=403)
+
+        with open(safe_path, 'rb') as image_file:
+            image_data = image_file.read()
+            return HttpResponse(image_data, content_type='image/jpeg')
+
+    except FileNotFoundError:
+        return HttpResponse(status=404)
+    except PermissionError:
+        return HttpResponse(status=403)
 
 def post_detail(request, post_id):
     user = request.user

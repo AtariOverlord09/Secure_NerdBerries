@@ -1,22 +1,67 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.db import connection
+from django.http import QueryDict
 
 from core.paginator import paginator
-from posts.forms import CommentForm, PostForm
-from posts.models import Category, Post, Comment, Follow
+from posts.forms import CommentForm, PostForm, SearchForm
+from posts.models import Category, Post, Comment, Follow, Purchase
 
 
 User = get_user_model()
 
+# Безопасный код и наиболее вероятный в контексте django разработки 
+#def index(request):
+#    form = SearchForm(request.GET)
+#    template = 'posts/index.html'
+#    posts = Post.objects.all()
+#    context = {}
+#
+#    if form.is_valid():
+#        query = form.cleaned_data.get('query')
+#        if query:
+#            posts = Post.objects.filter(title__icontains=query) | Post.objects.filter(text__icontains=query)
+#            context.update({'query': query, 'posts': posts})
+#
+#    page_number = request.GET.get('page')
+#    page_obj = paginator(posts, 10, page_number)
+#    context.update({'page_obj': page_obj, 'form': form})
+#
+#    return render(request, template, context)
 
 def index(request):
-    template = 'posts/index.html'
+    form = SearchForm(request.GET)
     posts = Post.objects.all()
-    page_number = request.GET.get('page')
-    context = {
-        'page_obj': paginator(posts, page_number),
-    }
+    template = 'posts/index.html'
+    context = {}
+
+    if form.is_valid():
+        query = form.cleaned_data.get('query')
+        if query:
+            sql_query = "SELECT * FROM posts_post WHERE title LIKE %s OR text LIKE %s"
+            with connection.cursor() as cursor:
+                cursor.execute(sql_query, ['%' + query + '%', '%' + query + '%'])
+                columns = [col[0] for col in cursor.description]
+                posts = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+            context.update({'query': query, 'posts': posts})
+
+    # Пагинация
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator(posts, page_number, 10)
+
+    # Сохраняем параметры запроса для пагинации
+    query_dict = QueryDict(mutable=True)
+    query_dict.update(request.GET)
+    query_dict.pop('page', None)
+
+    context.update({
+        'page_obj': page_obj,
+        'form': form,
+        'pagination_query_params': query_dict.urlencode(),
+    })
+
     return render(request, template, context)
 
 
@@ -51,16 +96,27 @@ def profile(request, username):
 
 
 def post_detail(request, post_id):
+    user = request.user
     post = get_object_or_404(Post, id=post_id)
     posts_count = post.author.posts.count
     comment_form = CommentForm()
     post_comments = Comment.objects.filter(post=post_id)
     template = 'posts/post_detail.html'
+    product_purchased = False
+
+    if request.user.is_authenticated:
+        if Purchase.objects.filter(
+            user=user, 
+            post=post,
+        ).exists():
+            product_purchased = True
+
     context = {
         'form': comment_form,
         'comments': post_comments,
         'posts_count': posts_count,
         'post': post,
+        'product_purchased': product_purchased,
     }
     return render(request, template, context)
 
@@ -143,3 +199,39 @@ def profile_unfollow(request, username):
         Follow.objects.get(user=request.user, author=author).delete()
 
     return redirect('posts:profile', username)
+
+
+@login_required
+def make_purchase(request, post_id):
+    user = request.user
+    post = get_object_or_404(Post, id=post_id)
+    Purchase.objects.get_or_create(
+        user=user,
+        post=post,
+        price=post.price,
+    )
+    return redirect('posts:post_detail', post_id)
+
+@login_required
+def return_purchase(request, post_id):
+    user = request.user
+    post = get_object_or_404(Post, id=post_id)
+    if Purchase.objects.filter(post=post, user=user).exists():
+        Purchase.objects.get(post=post, user=user).delete()
+
+    return redirect('posts:post_detail', post_id)
+
+@login_required
+def purchases(request):
+    user = request.user
+    purchases = user.purchases.all()
+    page_number = request.GET.get('page')
+    status_param = request.GET.get('status')
+
+    page_obj = paginator(purchases, page_number, 10)
+    template = 'posts/purchases.html'
+    context = {
+        'page_obj': page_obj,
+        'status_param': status_param,
+    }
+    return render(request, template, context)

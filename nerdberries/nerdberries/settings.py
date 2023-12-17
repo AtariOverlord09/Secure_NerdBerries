@@ -14,7 +14,7 @@ ALLOWED_HOSTS = [
     '[::1]',
     'testserver',
     '0.0.0.0',
-    '452a-5-228-80-254.ngrok-free.app',
+    '9bb2-5-228-80-254.ngrok-free.app',
 ]
 CACHES = {
     'default': {
@@ -55,6 +55,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'defender.middleware.FailedLoginMiddleware',
 ]
+
 
 ROOT_URLCONF = 'nerdberries.urls'
 TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
@@ -122,3 +123,4 @@ CSRF_FAILURE_VIEW = 'core.views.csrf_failure'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
 MEDIA_URL = '/media/'
+

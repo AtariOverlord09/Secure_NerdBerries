@@ -6,10 +6,9 @@ from posts.models import Comment, Post
 
 
 class PostForm(forms.ModelForm):
-
     class Meta:
         model = Post
-        fields = ['text', 'category', 'price', 'image']
+        fields = ['title', 'text', 'category', 'price', 'image']
         widgets = {
             'text': Textarea(
                 attrs={
@@ -27,6 +26,13 @@ class PostForm(forms.ModelForm):
             raise ValidationError('Заполните пожалуйста это поле')
         return data
 
+
+class SearchForm(forms.Form):
+    query = forms.CharField(
+        label='Поиск', 
+        max_length=100,
+        required=False,
+    )
 
 class CommentForm(forms.ModelForm):
 

@@ -1,3 +1,4 @@
+from enum import unique
 from django.contrib.auth import get_user_model
 from django.db import models
 
@@ -17,6 +18,12 @@ class Category(models.Model):
 
 
 class Post(CreatedModel):
+    title = models.CharField(
+        'Название',
+        help_text='Введите название скрипта',
+        max_length=200,
+        unique=True,
+    )
     text = models.TextField(
         'Описание скрипта',
         help_text='Введите описание скрипта'
@@ -96,3 +103,32 @@ class Follow(models.Model):
         blank=True,
         null=True
     )
+
+
+class Purchase(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='purchases',
+        verbose_name='Покупатель'
+    )
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='purchases',
+        verbose_name='Пост'
+    )
+    price = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        verbose_name='Цена',
+        help_text='Введите цену'
+    )
+    date = models.DateTimeField(
+        'Дата покупки',
+        auto_now_add=True
+    )
+    class Meta:
+        verbose_name = 'Покупка'
+        verbose_name_plural = 'Покупки'
+        ordering = ['-date']
